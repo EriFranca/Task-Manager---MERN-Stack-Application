@@ -1,0 +1,91 @@
+// backend/server.js
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+
+const app = express();
+
+// Modelo de Tarefa
+const TaskSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  description: String,
+  status: {
+    type: String,
+    enum: ['pending', 'in-progress', 'completed'],
+    default: 'pending'
+  },
+  dueDate: Date,
+  createdAt: { type: Date, default: Date.now }
+});
+
+const Task = mongoose.model('Task', TaskSchema);
+
+// Rotas da API
+app.post('/api/tasks', async (req, res) => {
+  try {
+    const task = new Task(req.body);
+    await task.save();
+    res.status(201).json(task);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.get('/api/tasks', async (req, res) => {
+  try {
+    const tasks = await Task.find();
+    res.json(tasks);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Frontend/src/components/TaskList.js
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+const TaskList = () => {
+  const [tasks, setTasks] = useState([]);
+  const [newTask, setNewTask] = useState({ title: '', description: '' });
+
+  const fetchTasks = async () => {
+    const response = await axios.get('/api/tasks');
+    setTasks(response.data);
+  };
+
+  const createTask = async (e) => {
+    e.preventDefault();
+    await axios.post('/api/tasks', newTask);
+    setNewTask({ title: '', description: '' });
+    fetchTasks();
+  };
+
+  return (
+    <div className="task-manager">
+      <form onSubmit={createTask}>
+        <input
+          type="text"
+          value={newTask.title}
+          onChange={(e) => setNewTask({...newTask, title: e.target.value})}
+          placeholder="Título da Tarefa"
+        />
+        <textarea
+          value={newTask.description}
+          onChange={(e) => setNewTask({...newTask, description: e.target.value})}
+          placeholder="Descrição"
+        />
+        <button type="submit">Adicionar Tarefa</button>
+      </form>
+
+      <div className="task-list">
+        {tasks.map(task => (
+          <div key={task._id} className="task-card">
+            <h3>{task.title}</h3>
+            <p>{task.description}</p>
+            <span className={`status ${task.status}`}>{task.status}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
